@@ -1,4 +1,3 @@
-// src/features/devices/device.service.ts
 import { prisma } from '../../core/db.js';
 
 // Tipe untuk data saat membuat atau memperbarui perangkat
@@ -13,7 +12,8 @@ export type DeviceData = {
  * Mengambil semua perangkat yang terdaftar.
  */
 export const getAllDevices = async () => {
-  const devices = await prisma.devices.findMany({
+  // FIX: prisma.devices -> prisma.device
+  const devices = await prisma.device.findMany({
     orderBy: {
       name: 'asc',
     },
@@ -26,7 +26,8 @@ export const getAllDevices = async () => {
  * @param data Detail perangkat yang akan dibuat.
  */
 export const createDevice = async (data: DeviceData) => {
-  const newDevice = await prisma.devices.create({
+  // FIX: prisma.devices -> prisma.device
+  const newDevice = await prisma.device.create({
     data: {
       ...data,
       status: 'offline', // Status awal selalu offline
@@ -42,7 +43,8 @@ export const createDevice = async (data: DeviceData) => {
  * @param data Detail baru untuk perangkat.
  */
 export const updateDevice = async (id: string, data: Partial<DeviceData>) => {
-  const updatedDevice = await prisma.devices.update({
+  // FIX: prisma.devices -> prisma.device
+  const updatedDevice = await prisma.device.update({
     where: { id },
     data,
   });
@@ -54,7 +56,8 @@ export const updateDevice = async (id: string, data: Partial<DeviceData>) => {
  * @param id ID perangkat yang akan dihapus.
  */
 export const deleteDevice = async (id: string) => {
-  await prisma.devices.delete({
+  // FIX: prisma.devices -> prisma.device
+  await prisma.device.delete({
     where: { id },
   });
   return { message: `Device ${id} deleted successfully.` };

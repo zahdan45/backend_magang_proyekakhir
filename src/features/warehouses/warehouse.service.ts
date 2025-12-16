@@ -1,4 +1,3 @@
-// src/features/warehouses/warehouse.service.ts
 import { prisma } from '../../core/db.js';
 
 export type WarehouseData = {
@@ -10,11 +9,17 @@ export type WarehouseData = {
 // --- TAMBAHKAN FUNGSI BARU INI ---
 export const getWarehousesSummary = async () => {
   // 1. Ambil semua data yang diperlukan secara bersamaan
-  const warehouses = await prisma.warehouses.findMany({
+  
+  // FIX: prisma.warehouses -> prisma.warehouse
+  const warehouses = await prisma.warehouse.findMany({
     orderBy: { name: 'asc' },
   });
-  const devices = await prisma.devices.findMany();
-  const activeIncidents = await prisma.incidents.findMany({
+  
+  // FIX: prisma.devices -> prisma.device
+  const devices = await prisma.device.findMany();
+  
+  // FIX: prisma.incidents -> prisma.incident
+  const activeIncidents = await prisma.incident.findMany({
     where: { is_cleared: false },
   });
 
@@ -45,10 +50,17 @@ export const getWarehousesSummary = async () => {
 // ------------------------------------
 
 export const getAllWarehouses = () =>
-  prisma.warehouses.findMany({ orderBy: { name: 'asc' } });
+  // FIX: prisma.warehouses -> prisma.warehouse
+  prisma.warehouse.findMany({ orderBy: { name: 'asc' } });
+
 export const createWarehouse = (data: WarehouseData) =>
-  prisma.warehouses.create({ data });
+  // FIX: prisma.warehouses -> prisma.warehouse
+  prisma.warehouse.create({ data });
+
 export const updateWarehouse = (id: string, data: Partial<WarehouseData>) =>
-  prisma.warehouses.update({ where: { id }, data });
+  // FIX: prisma.warehouses -> prisma.warehouse
+  prisma.warehouse.update({ where: { id }, data });
+
 export const deleteWarehouse = (id: string) =>
-  prisma.warehouses.delete({ where: { id } });
+  // FIX: prisma.warehouses -> prisma.warehouse
+  prisma.warehouse.delete({ where: { id } });

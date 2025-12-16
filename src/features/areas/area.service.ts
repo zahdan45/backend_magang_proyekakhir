@@ -1,16 +1,17 @@
-// src/features/areas/area.service.ts
 import { prisma } from '../../core/db.js';
 
 export const getAreasStatus = async (warehouseId?: string) => {
   const deviceWhereClause = warehouseId ? { warehouse_id: warehouseId } : {};
 
   // 1. Ambil semua perangkat yang relevan
-  const devices = await prisma.devices.findMany({
+  // FIX: prisma.devices -> prisma.device
+  const devices = await prisma.device.findMany({
     where: deviceWhereClause,
   });
 
   // 2. Gunakan 'groupBy' untuk meminta database menghitung insiden aktif per perangkat
-  const incidentCounts = await prisma.incidents.groupBy({
+  // FIX: prisma.incidents -> prisma.incident
+  const incidentCounts = await prisma.incident.groupBy({
     by: ['source_device_id'], // Kelompokkan berdasarkan ID perangkat
     where: {
       is_cleared: false,
@@ -61,7 +62,7 @@ export const getAreasStatus = async (warehouseId?: string) => {
   return areasWithStatus;
 };
 
-// Fungsi helper (bisa diimpor dari file utilitas lain)
+// Fungsi helper
 function isDeviceOnline(lastSeen: Date | null): boolean {
   if (!lastSeen) return false;
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;

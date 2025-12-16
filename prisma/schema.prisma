@@ -5,50 +5,62 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // Atau "mysql" jika pakai mysql, tapi biasanya postgresql untuk IoT
   url      = env("DATABASE_URL")
 }
 
-// --- USER (SIMPEL) ---
-// Tidak ada role, tidak ada permission check.
-model User {
+// Model untuk Gudang
+model Warehouse {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?  
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// --- AREA ---
-model Area {
-  id        String   @id @default(uuid())
-  name      String   
-  devices   Device[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// --- DEVICE ---
-model Device {
-  id        String     @id @default(uuid())
   name      String
-  type      String     
-  areaId    String
-  area      Area       @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  status    String     @default("offline")
-  incidents Incident[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  location  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relasi: Satu gudang punya banyak device
+  devices Device[]
+
+  @@map("warehouses") // Nama tabel di database
 }
 
-// --- INCIDENT ---
+// Model untuk Perangkat IoT
+model Device {
+  id            String    @id // ID biasanya dari hardware (MAC address/Serial)
+  name          String
+  location_area String    @map("location_area") // Area spesifik (Zone A, dll)
+  status        String    @default("offline")   // online/offline
+  last_seen     DateTime? @map("last_seen")
+  
+  // Foreign Key ke Warehouse
+  warehouse_id  String    @map("warehouse_id")
+  warehouse     Warehouse @relation(fields: [warehouse_id], references: [id])
+
+  // Relasi: Satu device bisa punya banyak incident
+  incidents Incident[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("devices")
+}
+
+// Model untuk Insiden/Deteksi Bahaya
 model Incident {
-  id          String   @id @default(uuid())
-  type        String
-  description String?
-  deviceId    String
-  device      Device   @relation(fields: [deviceId], references: [id])
-  timestamp   DateTime @default(now())
-  isResolved  Boolean  @default(false)
+  id               BigInt   @id @default(autoincrement())
+  incident_type    String   @map("incident_type") // IMPACT, VIBRATION, dll
+  
+  // Data sensor mentah disimpan dalam format JSON
+  data             Json
+  
+  confidence       Float?
+  is_cleared       Boolean  @default(false) @map("is_cleared")
+  
+  // Foreign Key ke Device
+  source_device_id String   @map("source_device_id")
+  device           Device   @relation(fields: [source_device_id], references: [id])
+
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@map("incidents")
 }

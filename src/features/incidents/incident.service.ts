@@ -1,10 +1,9 @@
-import { prisma } from '../../core/db';
-import { supabaseAdmin } from '../../core/supabase';
-import { Prisma } from '@prisma/client'; // MENGGUNAKAN IMPORT STANDAR
+import { prisma } from '../../core/db.js'; // TAMBAH .js
+import { supabaseAdmin } from '../../core/supabase.js'; // TAMBAH .js
+import { Prisma } from '@prisma/client';
 
 // --- Tipe Data & Interface ---
 
-// Tipe untuk data yang masuk dari request body
 export type IncidentCreationData = {
   incident_type: string;
   source_device_id: string;
@@ -30,7 +29,6 @@ type RawSensorData = {
   };
 };
 
-// Interface untuk struktur data insiden yang tersimpan (Parsing JSON)
 interface IncidentData {
   raw_values?: {
     accX?: number;
@@ -45,7 +43,6 @@ interface IncidentData {
   [key: string]: unknown;
 }
 
-// Interface untuk data insiden yang akan disimpan ke DB
 interface IncidentDataToSave {
   incident_type: string;
   source_device_id: string;
@@ -65,15 +62,15 @@ interface IncidentDataToSave {
 
 // --- Logic Service ---
 
-// 1. Mengambil semua data insiden (dengan filter area opsional)
 export const getAllIncidents = async (locationArea?: string) => {
-  const whereClause: Prisma.incidentsWhereInput = {};
+  // FIX: Ubah incidentsWhereInput jadi IncidentWhereInput (Huruf besar & Singular)
+  const whereClause: Prisma.IncidentWhereInput = {};
 
   if (locationArea) {
     console.log(`--- Mencari insiden untuk area: "${locationArea}" ---`);
 
-    // Cari dulu device yang ada di area tersebut
-    const devicesInArea = await prisma.devices.findMany({
+    // FIX: prisma.devices -> prisma.device
+    const devicesInArea = await prisma.device.findMany({
       where: {
         location_area: {
           equals: locationArea,
@@ -87,11 +84,11 @@ export const getAllIncidents = async (locationArea?: string) => {
     const deviceIds = devicesInArea.map((d) => d.id);
     console.log(`ID Perangkat:`, deviceIds);
 
-    // Filter insiden berdasarkan ID device yang ditemukan
     whereClause.source_device_id = { in: deviceIds };
   }
 
-  const incidents = await prisma.incidents.findMany({
+  // FIX: prisma.incidents -> prisma.incident
+  const incidents = await prisma.incident.findMany({
     where: whereClause,
     orderBy: {
       created_at: 'desc',
@@ -104,17 +101,16 @@ export const getAllIncidents = async (locationArea?: string) => {
   return incidents;
 };
 
-// 2. Membuat data insiden baru
 export const createIncident = async (incidentData: IncidentCreationData) => {
-  // Simpan ke database
-  const newIncident = await prisma.incidents.create({
+  // FIX: prisma.incidents -> prisma.incident
+  const newIncident = await prisma.incident.create({
     data: incidentData,
   });
 
-  // Update last_seen device
   try {
     if (newIncident.source_device_id) {
-      await prisma.devices.update({
+      // FIX: prisma.devices -> prisma.device
+      await prisma.device.update({
         where: { id: newIncident.source_device_id },
         data: { last_seen: new Date() },
       });
@@ -126,7 +122,6 @@ export const createIncident = async (incidentData: IncidentCreationData) => {
     );
   }
 
-  // Broadcast via Supabase Realtime
   try {
     const channelName = `device-status-${newIncident.source_device_id}`;
     const channel = supabaseAdmin.channel(channelName);
@@ -143,11 +138,11 @@ export const createIncident = async (incidentData: IncidentCreationData) => {
   return newIncident;
 };
 
-// 3. Update status incident menjadi cleared
 export const clearIncident = async (id: string) => {
-  const updatedIncident = await prisma.incidents.update({
+  // FIX: prisma.incidents -> prisma.incident
+  const updatedIncident = await prisma.incident.update({
     where: {
-      id: BigInt(id), // Pastikan ID di schema Anda BigInt
+      id: BigInt(id),
     },
     data: {
       is_cleared: true,
@@ -156,27 +151,27 @@ export const clearIncident = async (id: string) => {
   return updatedIncident;
 };
 
-// 4. Mengambil statistik untuk Chart
 export const getIncidentStatsForChart = async (locationArea?: string) => {
-  // Ambil data 24 jam terakhir
-  const whereClause: Prisma.incidentsWhereInput = {
+  // FIX: incidentsWhereInput -> IncidentWhereInput
+  const whereClause: Prisma.IncidentWhereInput = {
     created_at: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
   };
 
   if (locationArea) {
-    const devicesInArea = await prisma.devices.findMany({
+    // FIX: prisma.devices -> prisma.device
+    const devicesInArea = await prisma.device.findMany({
       where: { location_area: { equals: locationArea, mode: 'insensitive' } },
       select: { id: true },
     });
     whereClause.source_device_id = { in: devicesInArea.map((d) => d.id) };
   }
 
-  const incidents = await prisma.incidents.findMany({
+  // FIX: prisma.incidents -> prisma.incident
+  const incidents = await prisma.incident.findMany({
     where: whereClause,
     orderBy: { created_at: 'asc' },
   });
 
-  // Mapping data untuk frontend chart
   return incidents.map((inc) => ({
     time: inc.created_at.toISOString(),
     vibration: (inc.data as IncidentData)?.raw_values?.accX ?? 0,
@@ -184,23 +179,25 @@ export const getIncidentStatsForChart = async (locationArea?: string) => {
   }));
 };
 
-// 5. Mengambil Ringkasan (Summary) Jumlah Insiden
 export const getIncidentsSummary = async (locationArea?: string) => {
   let deviceIds: string[] | undefined = undefined;
 
   if (locationArea) {
-    const devicesInArea = await prisma.devices.findMany({
+    // FIX: prisma.devices -> prisma.device
+    const devicesInArea = await prisma.device.findMany({
       where: { location_area: { equals: locationArea, mode: 'insensitive' } },
       select: { id: true },
     });
     deviceIds = devicesInArea.map((d) => d.id);
   }
 
-  const totalIncidents = await prisma.incidents.count({
+  // FIX: prisma.incidents -> prisma.incident
+  const totalIncidents = await prisma.incident.count({
     where: deviceIds ? { source_device_id: { in: deviceIds } } : {},
   });
 
-  const activeIncidents = await prisma.incidents.count({
+  // FIX: prisma.incidents -> prisma.incident
+  const activeIncidents = await prisma.incident.count({
     where: deviceIds
       ? { source_device_id: { in: deviceIds }, is_cleared: false }
       : { is_cleared: false },
@@ -209,10 +206,8 @@ export const getIncidentsSummary = async (locationArea?: string) => {
   return { totalIncidents, activeIncidents };
 };
 
-// 6. Integrasi Machine Learning (Process Sensor Data)
 export const processSensorDataWithML = async (rawData: RawSensorData) => {
   try {
-    // Panggil API ML Eksternal
     const response = await fetch(`${process.env.ML_MODEL_URL}/predict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -229,7 +224,6 @@ export const processSensorDataWithML = async (rawData: RawSensorData) => {
 
     const predictionResult = (await response.json()) as PredictionResponse;
 
-    // Jika prediksi bukan NORMAL, simpan sebagai insiden
     if (predictionResult.prediction !== 'NORMAL') {
       const incidentToSave: IncidentDataToSave = {
         incident_type: predictionResult.prediction,

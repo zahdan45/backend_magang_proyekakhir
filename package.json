@@ -5,12 +5,10 @@
   "main": "eslint.config.js",
   "type": "module",
   "scripts": {
-    "postinstall": "prisma generate",
-    "dev": "tsx watch src/server.ts",
-    "build": "npx prisma generate && tsc",
-    "postbuild": "cp -r src/generated dist/generated && cp -r prisma dist/prisma",
     "start": "node dist/server.js",
-    "lint": "eslint 'src/**/*.ts'"
+    "dev": "nodemon src/server.ts",
+    "build": "npx prisma generate && tsc",
+    "postbuild": "shx cp -r prisma dist/prisma" 
   },
   "lint-staged": {
     "src/**/*.ts": "eslint --fix",
@@ -62,6 +60,7 @@
     "lint-staged": "^16.1.6",
     "prettier": "^3.6.2",
     "prisma": "^6.16.2",
+    "shx": "^0.4.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.43.0"
