@@ -1,6 +1,8 @@
-import { prisma } from '../../core/db.js';
-import { supabaseAdmin } from '../../core/supabase.js';
-import { Prisma } from '../../generated/prisma/index.js';
+import { prisma } from '../../core/db';
+import { supabaseAdmin } from '../../core/supabase';
+import { Prisma } from '@prisma/client'; // MENGGUNAKAN IMPORT STANDAR
+
+// --- Tipe Data & Interface ---
 
 // Tipe untuk data yang masuk dari request body
 export type IncidentCreationData = {
@@ -28,7 +30,7 @@ type RawSensorData = {
   };
 };
 
-// Interface untuk struktur data insiden yang tersimpan
+// Interface untuk struktur data insiden yang tersimpan (Parsing JSON)
 interface IncidentData {
   raw_values?: {
     accX?: number;
@@ -43,7 +45,7 @@ interface IncidentData {
   [key: string]: unknown;
 }
 
-// Interface untuk data insiden yang akan disimpan
+// Interface untuk data insiden yang akan disimpan ke DB
 interface IncidentDataToSave {
   incident_type: string;
   source_device_id: string;
@@ -61,13 +63,16 @@ interface IncidentDataToSave {
   };
 }
 
-// Fungsi untuk mengambil semua data insiden dengan filter lokasi opsional
+// --- Logic Service ---
+
+// 1. Mengambil semua data insiden (dengan filter area opsional)
 export const getAllIncidents = async (locationArea?: string) => {
   const whereClause: Prisma.incidentsWhereInput = {};
 
   if (locationArea) {
-    console.log(`--- Mencari insiden untuk area: "${locationArea}" ---`); // Log 1
+    console.log(`--- Mencari insiden untuk area: "${locationArea}" ---`);
 
+    // Cari dulu device yang ada di area tersebut
     const devicesInArea = await prisma.devices.findMany({
       where: {
         location_area: {
@@ -77,11 +82,12 @@ export const getAllIncidents = async (locationArea?: string) => {
       },
       select: { id: true },
     });
-    console.log(`Ditemukan perangkat di area ini: ${devicesInArea.length}`); // Log 2
+    console.log(`Ditemukan perangkat di area ini: ${devicesInArea.length}`);
 
     const deviceIds = devicesInArea.map((d) => d.id);
-    console.log(`ID Perangkat:`, deviceIds); // Log 3
+    console.log(`ID Perangkat:`, deviceIds);
 
+    // Filter insiden berdasarkan ID device yang ditemukan
     whereClause.source_device_id = { in: deviceIds };
   }
 
@@ -91,18 +97,21 @@ export const getAllIncidents = async (locationArea?: string) => {
       created_at: 'desc',
     },
   });
-  console.log(`Ditemukan insiden: ${incidents.length}`); // Log 4
+
+  console.log(`Ditemukan insiden: ${incidents.length}`);
   console.log(`--------------------------------------------------`);
 
   return incidents;
 };
 
-// Fungsi untuk membuat data insiden baru
+// 2. Membuat data insiden baru
 export const createIncident = async (incidentData: IncidentCreationData) => {
+  // Simpan ke database
   const newIncident = await prisma.incidents.create({
     data: incidentData,
   });
 
+  // Update last_seen device
   try {
     if (newIncident.source_device_id) {
       await prisma.devices.update({
@@ -117,13 +126,14 @@ export const createIncident = async (incidentData: IncidentCreationData) => {
     );
   }
 
+  // Broadcast via Supabase Realtime
   try {
     const channelName = `device-status-${newIncident.source_device_id}`;
     const channel = supabaseAdmin.channel(channelName);
     await channel.send({
       type: 'broadcast',
       event: 'sensor-reading',
-      payload: { data: newIncident.data }, // Kirim data sensor mentah
+      payload: { data: newIncident.data }, 
     });
     console.log(`Broadcast sent on channel: ${channelName}`);
   } catch (broadcastError) {
@@ -133,14 +143,11 @@ export const createIncident = async (incidentData: IncidentCreationData) => {
   return newIncident;
 };
 
-/**
- * Memperbarui status 'is_cleared' sebuah insiden menjadi true.
- * @param id ID dari insiden yang akan diperbarui.
- */
+// 3. Update status incident menjadi cleared
 export const clearIncident = async (id: string) => {
   const updatedIncident = await prisma.incidents.update({
     where: {
-      id: BigInt(id),
+      id: BigInt(id), // Pastikan ID di schema Anda BigInt
     },
     data: {
       is_cleared: true,
@@ -149,7 +156,9 @@ export const clearIncident = async (id: string) => {
   return updatedIncident;
 };
 
+// 4. Mengambil statistik untuk Chart
 export const getIncidentStatsForChart = async (locationArea?: string) => {
+  // Ambil data 24 jam terakhir
   const whereClause: Prisma.incidentsWhereInput = {
     created_at: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
   };
@@ -167,16 +176,18 @@ export const getIncidentStatsForChart = async (locationArea?: string) => {
     orderBy: { created_at: 'asc' },
   });
 
+  // Mapping data untuk frontend chart
   return incidents.map((inc) => ({
     time: inc.created_at.toISOString(),
-    // Diubah untuk mengakses data dari struktur nested raw_values
     vibration: (inc.data as IncidentData)?.raw_values?.accX ?? 0,
     sound: (inc.data as IncidentData)?.raw_values?.mic_level ?? 0,
   }));
 };
 
+// 5. Mengambil Ringkasan (Summary) Jumlah Insiden
 export const getIncidentsSummary = async (locationArea?: string) => {
   let deviceIds: string[] | undefined = undefined;
+
   if (locationArea) {
     const devicesInArea = await prisma.devices.findMany({
       where: { location_area: { equals: locationArea, mode: 'insensitive' } },
@@ -188,6 +199,7 @@ export const getIncidentsSummary = async (locationArea?: string) => {
   const totalIncidents = await prisma.incidents.count({
     where: deviceIds ? { source_device_id: { in: deviceIds } } : {},
   });
+
   const activeIncidents = await prisma.incidents.count({
     where: deviceIds
       ? { source_device_id: { in: deviceIds }, is_cleared: false }
@@ -197,12 +209,10 @@ export const getIncidentsSummary = async (locationArea?: string) => {
   return { totalIncidents, activeIncidents };
 };
 
-/**
- * Menerima data sensor mentah, memanggil model ML, dan mengambil tindakan.
- * @param rawData Data mentah dari perangkat.
- */
+// 6. Integrasi Machine Learning (Process Sensor Data)
 export const processSensorDataWithML = async (rawData: RawSensorData) => {
   try {
+    // Panggil API ML Eksternal
     const response = await fetch(`${process.env.ML_MODEL_URL}/predict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,7 +220,6 @@ export const processSensorDataWithML = async (rawData: RawSensorData) => {
     });
 
     if (!response.ok) {
-      // Baca pesan error dari body respons jika ada
       const errorBody = await response.text();
       console.error(
         `ML API Error - Status: ${response.status}, Body: ${errorBody}`
@@ -218,9 +227,9 @@ export const processSensorDataWithML = async (rawData: RawSensorData) => {
       throw new Error('ML model API returned an error');
     }
 
-    // --- TAMBAHKAN TYPE ASSERTION 'as' DI SINI ---
     const predictionResult = (await response.json()) as PredictionResponse;
 
+    // Jika prediksi bukan NORMAL, simpan sebagai insiden
     if (predictionResult.prediction !== 'NORMAL') {
       const incidentToSave: IncidentDataToSave = {
         incident_type: predictionResult.prediction,

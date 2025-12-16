@@ -1,5 +1,5 @@
 // src/core/db.ts
-import { PrismaClient } from '../generated/prisma/index.js';
+import { PrismaClient } from '@prisma/client';
 
 // Deklarasikan tipe 'prisma' pada scope global TypeScript
 declare global {
