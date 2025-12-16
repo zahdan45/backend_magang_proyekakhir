@@ -8,7 +8,7 @@
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
     "build": "npx prisma generate && tsc",
-    "postbuild": "shx cp -r prisma dist/prisma"
+    "postbuild": "shx cp -r prisma dist/prisma",
     "lint": "echo 'Linting skipped for now'"
   },
   "lint-staged": {
