@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    /* Type Checking */
+    "strict": true, // Mengaktifkan semua aturan pengecekan tipe yang ketat
+    "noUnusedLocals": true, // Memberi error jika ada variabel lokal yang tidak digunakan
+    "noUnusedParameters": true, // Memberi error jika ada parameter fungsi yang tidak digunakan
+    "noImplicitReturns": true, // Memastikan semua cabang fungsi mengembalikan nilai
+
+    /* Modules */
+    "module": "NodeNext", // Menggunakan standar modul ES terbaru untuk Node.js
+    "moduleResolution": "NodeNext", // Cara TypeScript mencari file modul
+    "resolveJsonModule": true, // Mengizinkan import file .json
+
+    /* Emit */
+    "outDir": "./dist", // Folder output untuk file JavaScript hasil kompilasi
+    "sourceMap": true, // Membuat file .map untuk debugging
+
+    /* Interop */
+    "esModuleInterop": true, // Memperbaiki kompatibilitas antara modul CommonJS dan ES
+    "forceConsistentCasingInFileNames": true, // Memastikan nama file yang di-import konsisten
+
+    /* Language and Environment */
+    "target": "ES2022", // Menargetkan versi JavaScript modern
+    "lib": ["ES2022"],
+    "skipLibCheck": true // Melewatkan pengecekan tipe dari file deklarasi (.d.ts)
+  },
+  "include": ["src/**/*"], // Hanya file di dalam folder 'src' yang akan dikompilasi
+  "exclude": ["node_modules"] // Folder yang diabaikan
+}

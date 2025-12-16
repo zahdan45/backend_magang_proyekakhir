@@ -1,0 +1,68 @@
+{
+  "name": "synergy-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "eslint.config.js",
+  "type": "module",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "postbuild": "cp -r src/generated dist/generated && cp -r prisma dist/prisma",
+    "start": "node dist/server.js",
+    "lint": "eslint 'src/**/*.ts'"
+  },
+  "lint-staged": {
+    "src/**/*.ts": "eslint --fix",
+    "*.{ts,json,md}": "prettier --write"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zufarnatsir/synergy-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zufarnatsir/synergy-backend/issues"
+  },
+  "homepage": "https://github.com/zufarnatsir/synergy-backend#readme",
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@supabase/supabase-js": "^2.57.4",
+    "canvas": "^3.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "morgan": "^1.10.1",
+    "mqtt": "^5.14.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "prisma": "^6.16.2",
+    "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.16.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/mime": "^3.0.4",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^24.10.4",
+    "@types/socket.io": "^3.0.1",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@typescript-eslint/eslint-plugin": "^8.43.0",
+    "@typescript-eslint/parser": "^8.43.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.6",
+    "prettier": "^3.6.2",
+    "prisma": "^6.16.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.43.0"
+  }
+}

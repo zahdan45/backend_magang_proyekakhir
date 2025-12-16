@@ -1,0 +1,20 @@
+# Dependency directories
+node_modules/
+
+# Build output
+dist/
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Environment variables
+.env*
+
+# Husky
+.husky/
+

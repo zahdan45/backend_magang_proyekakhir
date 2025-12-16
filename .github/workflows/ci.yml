@@ -1,0 +1,48 @@
+# Nama workflow yang akan muncul di tab "Actions" GitHub
+name: Synergy Backend CI
+
+# Pemicu (trigger) kapan workflow ini harus berjalan
+on:
+  # Berjalan saat ada push ke branch 'main' atau 'develop'
+  push:
+    branches: ['main', 'develop']
+  # Berjalan saat ada pull request yang menargetkan branch 'develop'
+  pull_request:
+    branches: ['develop']
+
+# Daftar pekerjaan (jobs) yang akan dieksekusi
+jobs:
+  # Kita definisikan satu job bernama 'build'
+  build:
+    # Menentukan sistem operasi untuk server virtualnya (Ubuntu versi terbaru)
+    runs-on: ubuntu-latest
+
+    # Langkah-langkah (steps) yang akan dijalankan secara berurutan
+    steps:
+      # Langkah 1: Mengunduh (checkout) kode dari repositori Anda ke server virtual
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Langkah 2: Menyiapkan lingkungan Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Menggunakan Node.js versi 24.x, sesuai dengan tech stack kita
+          node-version: 24.x
+          # Menggunakan cache npm untuk mempercepat proses instalasi di masa depan
+          cache: 'npm'
+
+      # Langkah 3: Menginstal semua dependensi proyek
+      # 'npm ci' lebih cepat dan lebih aman untuk lingkungan CI daripada 'npm install'
+      - name: Install dependencies
+        run: npm ci
+
+      # Langkah 4: Menjalankan proses build (kompilasi TypeScript)
+      # Jika ada error TypeScript, langkah ini akan gagal dan menghentikan workflow
+      - name: Build project
+        run: npm run build
+
+      # Langkah 5: Menjalankan linter untuk memeriksa kualitas kode
+      # Jika ada error linting, langkah ini juga akan gagal
+      - name: Run linter
+        run: npm run lint
