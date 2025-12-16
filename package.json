@@ -7,7 +7,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "postbuild": "cp -r src/generated dist/generated && cp -r prisma dist/prisma",
     "start": "node dist/server.js",
     "lint": "eslint 'src/**/*.ts'"
@@ -49,6 +49,7 @@
     "@types/mime": "^3.0.4",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.10.4",
+    "@types/node-telegram-bot-api": "^0.64.13",
     "@types/socket.io": "^3.0.1",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",

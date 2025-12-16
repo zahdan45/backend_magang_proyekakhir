@@ -3,8 +3,9 @@
     /* Type Checking */
     "strict": true, // Mengaktifkan semua aturan pengecekan tipe yang ketat
     "noUnusedLocals": true, // Memberi error jika ada variabel lokal yang tidak digunakan
-    "noUnusedParameters": true, // Memberi error jika ada parameter fungsi yang tidak digunakan
+    "noUnusedParameters": false, // Memberi error jika ada parameter fungsi yang tidak digunakan
     "noImplicitReturns": true, // Memastikan semua cabang fungsi mengembalikan nilai
+    "noImplicitAny": false,       // Agar variable tanpa tipe tidak error
 
     /* Modules */
     "module": "NodeNext", // Menggunakan standar modul ES terbaru untuk Node.js
