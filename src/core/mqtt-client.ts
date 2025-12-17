@@ -3,7 +3,7 @@ import { Server } from 'socket.io';
 import TelegramBot from 'node-telegram-bot-api';
 import fs from 'fs';
 import path from 'path';
-// Import loadImage juga untuk membaca gambar kamera
+// Import canvas untuk pemrosesan gambar thermal & kamera
 import { createCanvas, loadImage } from 'canvas'; 
 
 // --- KONFIGURASI TELEGRAM ---
@@ -21,12 +21,12 @@ let latestCamBuffer: Buffer | null = null;
 let latestThermalRaw: number[] = [];
 let currentThreshold = 35;
 
-// Cooldown
+// Cooldown (Agar telegram tidak spamming setiap detik)
 let lastWaterAlertTime = 0;
 let lastThermalAlertTime = 0;
-const ALERT_COOLDOWN = 60 * 1000; 
+const ALERT_COOLDOWN = 60 * 1000; // 1 Menit cooldown
 
-// --- BACA CONFIG ---
+// --- BACA CONFIG DARI FILE JSON ---
 const updateThresholdFromFile = () => {
   try {
     const configPath = path.join(process.cwd(), 'config.json');
@@ -52,6 +52,7 @@ const generateThermalImage = (data: number[]): Buffer => {
         const val = data[i];
         let normalized = (val - min) / range;
         normalized = Math.max(0, Math.min(1, normalized));
+        // Warna HSL: Biru (dingin) ke Merah (panas)
         const hue = (1 - normalized) * 240; 
         
         ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
@@ -60,6 +61,7 @@ const generateThermalImage = (data: number[]): Buffer => {
         ctx.fillRect(x, y, 1, 1);
     }
 
+    // Perbesar gambar agar terlihat jelas di Telegram (Scale 20x)
     const scale = 20; 
     const bigCanvas = createCanvas(w * scale, h * scale);
     const bigCtx = bigCanvas.getContext('2d');
@@ -70,6 +72,7 @@ const generateThermalImage = (data: number[]): Buffer => {
 };
 
 // --- FUNGSI 2: ROTATE & MIRROR GAMBAR KAMERA ---
+// Agar gambar yang dikirim ke Telegram tegak lurus dan tidak terbalik
 const processCameraImage = async (imgBuffer: Buffer): Promise<Buffer> => {
     try {
         // 1. Load Gambar dari Buffer
@@ -119,17 +122,18 @@ export function connectMqtt() {
   client.on('message', (topic, payload) => {
     const messageStr = payload.toString();
 
+    // 1. Update Threshold jika ada perubahan dari web
     if (topic.includes('threshold')) {
        currentThreshold = parseFloat(messageStr);
     }
 
+    // 2. Stream Kamera
     if (topic.includes('cam')) {
-      // Simpan Buffer Asli (Belum diedit) untuk efisiensi server
-      // Kita edit nanti HANYA SAAT mau kirim alert
       latestCamBuffer = Buffer.from(messageStr, 'base64');
       if (io) io.emit('stream-cam', messageStr);
     }
 
+    // 3. Stream Thermal (Suhu)
     if (topic.includes('thermal')) {
       try {
         const thermalData = JSON.parse(messageStr);
@@ -140,6 +144,7 @@ export function connectMqtt() {
             const avg = thermalData.reduce((a: number, b: number) => a + b, 0) / thermalData.length;
             const max = Math.max(...thermalData);
 
+            // Cek Bahaya Suhu
             if (avg > currentThreshold && (Date.now() - lastThermalAlertTime > ALERT_COOLDOWN)) {
                 sendThermalAlert(avg, max);
                 lastThermalAlertTime = Date.now();
@@ -148,11 +153,16 @@ export function connectMqtt() {
       } catch (e) { }
     }
 
+    // 4. Stream Water (Kebocoran Air)
     if (topic.includes('water')) {
       if (io) io.emit('stream-water', messageStr);
+      
       const rawValue = parseInt(messageStr);
+      // Batas aman sensor air biasanya < 500 (kering)
       if (rawValue > 500 && (Date.now() - lastWaterAlertTime > ALERT_COOLDOWN)) {
+          // Rumus konversi sederhana ke milimeter (sesuaikan kalibrasi sensor Anda)
           const mm = ((rawValue - 500) * 48 / 3595).toFixed(1);
+          
           sendWaterAlert(rawValue, mm);
           lastWaterAlertTime = Date.now();
       }
@@ -160,7 +170,7 @@ export function connectMqtt() {
   });
 }
 
-// --- SEND ALERT ---
+// --- SEND ALERT THERMAL ---
 async function sendThermalAlert(avg: number, max: number) {
     console.log("🔥 SUHU TINGGI! Memproses Gambar & Kirim Telegram...");
 
@@ -178,11 +188,10 @@ Batas Aman: ${currentThreshold}°C
         // A. PROSES GAMBAR VISUAL (Rotate & Mirror)
         let finalCamImage = latestCamBuffer;
         if (latestCamBuffer) {
-            // Proses gambar (Rotate 180 + Mirror)
             finalCamImage = await processCameraImage(latestCamBuffer);
         }
 
-        // B. KIRIM FOTO VISUAL (YANG SUDAH DI-ROTATE)
+        // B. KIRIM FOTO VISUAL 
         if (finalCamImage) {
             await bot.sendPhoto(TELEGRAM_CHAT_ID, finalCamImage, { 
                 caption: captionText, 
@@ -204,19 +213,32 @@ Batas Aman: ${currentThreshold}°C
             }
         }
 
-        console.log("✅ Laporan Lengkap Terkirim ke Telegram!");
+        console.log("✅ Laporan Suhu Terkirim ke Telegram!");
         
     } catch (error: any) {
         console.error("❌ Telegram Error:", error.message);
     }
 }
 
+// --- SEND ALERT WATER (SUDAH DIPERBAIKI) ---
 async function sendWaterAlert(raw: number, mm: string) {
-    const message = `💧 *PERINGATAN GENANGAN AIR!* ... (Isi pesan sama) ...`;
+    console.log("💧 KEBOCORAN TERDETEKSI! Mengirim Notifikasi Telegram...");
+
+    const message = `
+💧 *PERINGATAN KEBOCORAN AIR!*
+
+Nilai Sensor: *${raw}*
+Estimasi Tinggi Air: *${mm} mm*
+
+⚠️ _Segera periksa lantai gudang untuk mencegah kerusakan barang!_
+`;
+
     try {
         await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' });
-        console.log("📨 Telegram: Water Alert Sent");
-    } catch (error) { console.error("Telegram Error:", error); }
+        console.log("📨 Telegram: Water Alert Sent Successfully");
+    } catch (error: any) { 
+        console.error("❌ Telegram Error (Water Alert):", error.message); 
+    }
 }
 
 export const publishThreshold = (value: number) => {

@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node dist/server.js",
-    "dev": "nodemon src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "npx prisma generate && tsc",
     "postbuild": "shx cp -r prisma dist/prisma",
     "lint": "echo 'Linting skipped for now'"
@@ -59,10 +59,12 @@
     "globals": "^16.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.6",
+    "nodemon": "^3.1.11",
     "prettier": "^3.6.2",
     "prisma": "^6.16.2",
     "shx": "^0.4.0",
-    "tsx": "^4.20.5",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.43.0"
   }
