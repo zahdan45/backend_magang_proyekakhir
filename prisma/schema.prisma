@@ -1,66 +1,83 @@
-// prisma/schema.prisma
+// GUNAKAN ISI FILE INI UNTUK KEDUA FOLDER (FRONTEND & BACKEND)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // Atau "mysql" jika pakai mysql, tapi biasanya postgresql untuk IoT
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Model untuk Gudang
-model Warehouse {
+// --- USER (Khusus Google Auth) ---
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  name             String?
+  image            String?  // Foto profil dari Google
+  role             String   @default("USER")
+  canEditThreshold Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// --- AREA (Pengganti Warehouse) ---
+model Area {
   id        String   @id @default(uuid())
-  name      String
-  location  String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relasi: Satu gudang punya banyak device
-  devices Device[]
-
-  @@map("warehouses") // Nama tabel di database
+  name      String   // Contoh: "Ruang Server", "Gudang 1"
+  devices   Device[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-// Model untuk Perangkat IoT
+// --- DEVICE ---
 model Device {
-  id            String    @id // ID biasanya dari hardware (MAC address/Serial)
-  name          String
-  location_area String    @map("location_area") // Area spesifik (Zone A, dll)
-  status        String    @default("offline")   // online/offline
-  last_seen     DateTime? @map("last_seen")
+  id         String      @id @default(uuid())
+  name       String
+  type       String      // Microcontroller / Sensor
+  status     String      @default("offline")
   
-  // Foreign Key ke Warehouse
-  warehouse_id  String    @map("warehouse_id")
-  warehouse     Warehouse @relation(fields: [warehouse_id], references: [id])
+  // Relasi ke Area
+  areaId     String
+  area       Area        @relation(fields: [areaId], references: [id], onDelete: Cascade)
 
-  // Relasi: Satu device bisa punya banyak incident
-  incidents Incident[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("devices")
+  // Relasi Data
+  incidents  Incident[]
+  sensorLogs SensorLog[] // Untuk grafik suhu & air
+  
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
-// Model untuk Insiden/Deteksi Bahaya
+// --- SENSOR LOG (PENTING UNTUK GRAFIK & HISTORIS) ---
+// Backend (MQTT) akan mengisi tabel ini setiap menit atau saat ada anomali
+model SensorLog {
+  id          String   @id @default(uuid())
+  
+  temperature Float?   // Menyimpan suhu rata-rata (misal: 36.5)
+  tempMin     Float?   // Menyimpan suhu terendah
+  tempMax     Float?   // Menyimpan suhu tertinggi
+  aiLoss      Float?   // Menyimpan nilai MSE dari Autoencoder
+  weather     String?  // Menyimpan deskripsi cuaca saat itu
+  waterLevel  Int?     // Menyimpan raw data air (misal: 450)
+  
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now()) // Waktu data masuk
+  
+  @@index([deviceId, createdAt]) // Agar loading grafik cepat
+}
+
+// --- INCIDENT ---
 model Incident {
-  id               BigInt   @id @default(autoincrement())
-  incident_type    String   @map("incident_type") // IMPACT, VIBRATION, dll
+  id          String   @id @default(uuid())
+  type        String
+  description String?
   
-  // Data sensor mentah disimpan dalam format JSON
-  data             Json
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id])
   
-  confidence       Float?
-  is_cleared       Boolean  @default(false) @map("is_cleared")
-  
-  // Foreign Key ke Device
-  source_device_id String   @map("source_device_id")
-  device           Device   @relation(fields: [source_device_id], references: [id])
-
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-
-  @@map("incidents")
+  timestamp   DateTime @default(now())
+  isResolved  Boolean  @default(false)
 }

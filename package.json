@@ -29,6 +29,7 @@
   "dependencies": {
     "@prisma/client": "^6.16.2",
     "@supabase/supabase-js": "^2.57.4",
+    "@tensorflow/tfjs": "^4.22.0",
     "canvas": "^3.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
